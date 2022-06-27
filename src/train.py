@@ -1,19 +1,17 @@
 import torch
 import argparse
-from pathlib import Path
-from src.dataset import EcoData
-from torch.utils.data import DataLoader
-from torch.utils.data import random_split
-from src.models import VQVAE
+import numpy as np
+from models import VQVAE
+from utils import testModel
+from dataset import EcoData
 import torch.optim as optim
 from six.moves import xrange
-import numpy as np
-from src.utils import testModel
-
+from torch.utils.data import DataLoader
+from torch.utils.data import random_split
 
 
 class VQVAETrainer:
-    def __init__(self, folder_path,length=60,lwin=12,ext='WAV',n_fft=1024, device):
+    def __init__(self, folder_path,length=60,lwin=12,ext='WAV',n_fft=1024, device='cuda'):
         self.folder_path = folder_path
         self.dataset = EcoData(folder_path, length=length, 
                                lwin=lwin, ext=ext, n_fft=n_fft)
@@ -72,7 +70,7 @@ class VQVAETrainer:
 
                 if (i+1) % 10 == 0:
                     fig, test_error = testModel(model, iterator)
-                    torch.save(model.state_dict(),f'./{checkpoints}/model.pt')
+                    torch.save(model.state_dict(),f'{checkpoints}/model.pt')
 
 
 def main():
@@ -103,6 +101,7 @@ def main():
                                 args.ext,
                                 args.n_fft, 
                                 args.device)
+
     vqvae_trainer.run(args.checkpoints_path, 
                      args.batch_size, 
                      args.num_hiddens, 
