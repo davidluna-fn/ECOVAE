@@ -4,6 +4,8 @@ import torch.nn.functional as F
 
 
 class Encoder(nn.Module):
+
+    # docstring for Encoder
     def __init__(self, in_channels, num_hiddens):
         super(Encoder, self).__init__()
 
@@ -203,7 +205,7 @@ class VectorQuantizerEMA(nn.Module):
         return loss, quantized.permute(0, 3, 1, 2).contiguous(), perplexity, encodings
 
 
-class Model(nn.Module):
+class VQVAE(nn.Module):
     def __init__(self, num_hiddens, num_embeddings, embedding_dim, commitment_cost, decay=0):
         super(Model, self).__init__()
 
