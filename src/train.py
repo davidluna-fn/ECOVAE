@@ -70,7 +70,7 @@ class VQVAETrainer:
 
                 if (i+1) % 10 == 0:
                     fig, test_error = testModel(model, iterator)
-                    torch.save(model.state_dict(),f'{checkpoints}/model.pt')
+                    torch.save(model.state_dict(),f'{checkpoints}/model.pth')
 
 
 def main():
