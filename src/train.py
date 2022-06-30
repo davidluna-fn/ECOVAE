@@ -6,8 +6,10 @@ from utils import testModel
 from dataset import EcoData
 import torch.optim as optim
 from six.moves import xrange
+import torch.nn.functional as F
 from torch.utils.data import DataLoader
 from torch.utils.data import random_split
+import matplotlib.pyplot as plt
 
 
 class VQVAETrainer:
@@ -26,7 +28,9 @@ class VQVAETrainer:
 
     def run(self, checkpoints, batch_size, num_hiddens, 
             num_embeddings, embedding_dim, commitment_cost, 
-            decay, learning_rate, num_epochs, num_training_updates ):
+            decay, learning_rate, num_epochs):
+
+        print(f'run trained \t Device: {self.device}')
 
         train_dataloader = DataLoader(self.train, batch_size=batch_size, shuffle = False)
         test_dataloader  = DataLoader(self.test, batch_size=batch_size)
@@ -38,10 +42,10 @@ class VQVAETrainer:
 
 
         model.train()
-        iterator = iter(self.test)
+        test_iter = iter(self.test)
 
         for epoch in range(num_epochs):
-            for i in xrange(num_training_updates):
+            for i in xrange(self.num_training_updates):
                 try:
                     (data, _,_) = next(iter(train_dataloader))
                 except Exception as e:
@@ -62,20 +66,37 @@ class VQVAETrainer:
 
                     optimizer.step()
 
-
-                print(f'epoch: {epoch} of {num_epochs} \t iteration: {(i+1)}... of {num_training_updates} \t loss: {np.round(loss.item(),7)} \t recon_error: {np.round(recon_error.item(),7)} \t vq_loss: {np.round(vq_loss.item(),7)}')
+                print(f'epoch: {epoch} of {num_epochs} \t iteration: {(i+1)}... of {self.num_training_updates} \t loss: {np.round(loss.item(),7)} \t recon_error: {np.round(recon_error.item(),7)} \t vq_loss: {np.round(vq_loss.item(),7)}')
 
                 torch.cuda.empty_cache()
 
 
-                if (i+1) % 10 == 0:
-                    fig, test_error = testModel(model, iterator)
-                    torch.save(model.state_dict(),f'{checkpoints}/model.pth')
+                if (i+1) % 50 == 0:
+                    try:
+                        fig1,fig2, test_error = testModel(model, test_iter)
+                        torch.save({'state_dict': model.state_dict(),
+                                    'epoch': epoch,
+                                    'iteration': i,
+                                    'loss': np.round(loss.item(),7),
+                                    'recon_error': np.round(recon_error.item(),7), 
+                                    'vq_loss': np.round(vq_loss.item(),7)},
+                                    f'{checkpoints}/model_{epoch}_{i}.pth')
+                    except:
+                        pass
+                        test_iter = iter(self.test)
+                        fig1,fig2, test_error = testModel(model, test_iter)
+                        torch.save({'state_dict': model.state_dict(),
+                                    'epoch': epoch,
+                                    'iteration': i,
+                                    'loss': np.round(loss.item(),7),
+                                    'recon_error': np.round(recon_error.item(),7), 
+                                    'vq_loss': np.round(vq_loss.item(),7)},
+                                    f'{checkpoints}/model_{epoch}_{i}.pth')
 
 
 def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument('--folder_path', type=str, required=True)
+    parser.add_argument('--folder_path', nargs='+', required=True)
     parser.add_argument('--audio_len', type=int, default=60)
     parser.add_argument('--lwin', type=int, default=12)
     parser.add_argument('--ext', type=str, default='WAV')
@@ -89,11 +110,11 @@ def main():
     parser.add_argument('--commitment_cost', type=float, default=0.25)
     parser.add_argument('--decay', type=float, default=0.99)
     parser.add_argument('--learning_rate', type=float, default=1e-3)
-    parser.add_argument('device', type=str)
+    parser.add_argument('--device', type=str, required=False)
     args = parser.parse_args()
 
     if not args.device:
-        args.device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
+        args.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
     vqvae_trainer = VQVAETrainer(args.folder_path,
                                 args.audio_len,
@@ -110,8 +131,9 @@ def main():
                      args.commitment_cost, 
                      args.decay, 
                      args.learning_rate, 
-                     args.num_epochs, 
-                     args.num_training_updates)
+                     args.num_epochs)
+
+    print('Termino el for')
 
 
 if __name__ == '__main__':

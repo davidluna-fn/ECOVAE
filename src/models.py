@@ -61,7 +61,7 @@ class Decoder(nn.Module):
                                                 dilation=(1,1),  output_padding=(1, 1))
 
         self._conv_trans_4 = nn.ConvTranspose2d(in_channels=num_hiddens // 4,
-                                                out_channels=input,
+                                                out_channels=1,
                                                 kernel_size=(2, 2), 
                                                 stride=(2, 2), padding=(1, 1),
                                                 dilation=(1,1),  output_padding=(1, 1))
@@ -207,7 +207,7 @@ class VectorQuantizerEMA(nn.Module):
 
 class VQVAE(nn.Module):
     def __init__(self, num_hiddens, num_embeddings, embedding_dim, commitment_cost, decay=0):
-        super(Model, self).__init__()
+        super(VQVAE, self).__init__()
 
         self._encoder = Encoder(1, num_hiddens)
         self._pre_vq_conv = nn.Conv2d(in_channels=num_hiddens,
