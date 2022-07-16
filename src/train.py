@@ -32,7 +32,7 @@ class VQVAETrainer:
 
     def run(self, checkpoints, batch_size, num_hiddens, 
             num_embeddings, embedding_dim, commitment_cost, 
-            decay, learning_rate, num_epochs, num_residual_layers,num_residual_hiddens):
+            decay, learning_rate, num_epochs):
 
         print(f'run trained \t Device: {self.device}')
 
@@ -40,7 +40,7 @@ class VQVAETrainer:
         test_dataloader  = DataLoader(self.test, batch_size=batch_size, shuffle = True)
 
         model = VQVAE(num_hiddens, num_embeddings, embedding_dim, 
-                      commitment_cost, num_residual_layers, num_residual_hiddens, decay).to(self.device)
+                      commitment_cost, decay).to(self.device)
 
         if self.load_checkpoint != None:
             file_checkpoint = torch.load(self.load_checkpoint)
@@ -136,8 +136,6 @@ def main():
     parser.add_argument('--embedding_dim', type=int, default=128)
     parser.add_argument('--num_embeddings', type=int, default=64)
     parser.add_argument('--commitment_cost', type=float, default=0.25)
-    parser.add_argument('--num_residual_layers', type=int, default=32)
-    parser.add_argument('--num_residual_hiddens', type=int, default=2)
     parser.add_argument('--decay', type=float, default=0.99)
     parser.add_argument('--learning_rate', type=float, default=1e-3)
     parser.add_argument('--device', type=str, required=False)
@@ -171,15 +169,13 @@ def main():
                      args.commitment_cost, 
                      args.decay, 
                      args.learning_rate, 
-                     args.num_epochs,
-                     args.num_residual_layers,
-                     args.num_residual_hiddens)
+                     args.num_epochs)
 
     if args.wandb:
         wandb.finish()
 
 
-    print('Termino el for')
+    print('End training')
 
 
 if __name__ == '__main__':
