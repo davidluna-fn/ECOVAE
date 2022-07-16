@@ -48,7 +48,7 @@ class VQVAETrainer:
 
 
         optimizer = optim.Adam(model.parameters(), lr=learning_rate, amsgrad=False)
-        scheduler = lr_scheduler.StepLR(optimizer, step_size = 1, gamma = 0.1 )
+        scheduler = lr_scheduler.StepLR(optimizer, step_size = 2, gamma = 0.1 )
 
         if self.wandb:
             wandb.watch(model, F.mse_loss, log="all", log_freq=1)
