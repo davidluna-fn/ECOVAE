@@ -17,7 +17,7 @@ def get_spectrogram(waveform, n_fft = 1024, win_len = None, hop_len = None, powe
   return spectrogram(waveform)
 
 def showTest(grid):
-  fig, ax = plt.subplots(nrows=2,ncols=5,figsize=(20,5))
+  fig, ax = plt.subplots(nrows=2,ncols=4,figsize=(20,5))
   ax = ax.ravel()
     
   for i in range(grid.shape[0]):
@@ -28,27 +28,32 @@ def showTest(grid):
 
   return fig
 
-def show_spectrogram(grid):
-    fig, ax = plt.subplots(nrows=1,ncols=5,figsize=(15,5))
-    for i in range(grid.shape[0]):
-        try:
-            ax[i].imshow(grid[i,:,:].cpu().numpy(),vmin=0,vmax=1)
-            #ax[i].axes('off')
-        except:
-            ax[i].imshow(grid[i,:,:].cpu().detach().numpy(),vmin=0,vmax=1)
-            #ax[i].axes('off')
-        ax[i].set(xticklabels=[], yticklabels=[], xticks=[], yticks=[])
-        plt.subplots_adjust(wspace=0.0, hspace=0.0)
-    plt.show()
-
+def showgrid(t1,t2):
+    fig, ax = plt.subplots(nrows=2,ncols=5,figsize=(20,7))
+    for i in range(t1.shape[0]):
+        ax[0,i].pcolormesh(t1[i,:,:].cpu().numpy(),vmin=0,vmax=0.1)
+        ax[1,i].pcolormesh(t2[i,:,:].cpu().detach().numpy(),vmin=0,vmax=0.11)
+        ax[0,i].set(xticklabels=[], yticklabels=[], xticks=[], yticks=[])
+        ax[1,i].set(xticklabels=[], yticklabels=[], xticks=[], yticks=[])
+        plt.subplots_adjust(wspace=0.1, hspace=0.1)
     return fig
 
+def inverse_data(data, n_fft):
+    ISxx = T.InverseSpectrogram(
+    n_fft=n_fft,
+    win_length=None,
+    hop_length=None,
+    center=True,
+    pad_mode="reflect")(data.type(torch.complex64))
+
+
+    return ISxx.reshape((ISxx.shape[0] * ISxx.shape[1] ))
 
 def testModel(model, iterator):
 
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     model.eval()
-    (valid, _,_) = next(iterator)
+    (valid, _,_,_) = next(iterator)
     
     valid = torch.unsqueeze(valid,1)
   
@@ -58,15 +63,7 @@ def testModel(model, iterator):
     _, valid_quantize, _, _ = model._vq_vae(vq_output_eval)
     valid_reconstructions = model._decoder(valid_quantize)
 
-    #xx = torch.cat((valid[:,0,:,:],valid_reconstructions[:,0,:,:]),0)
-    fig1 = show_spectrogram(valid[:,0,:,:])
-    fig2 = show_spectrogram(valid_reconstructions[:,0,:,:])
-    
-
-    #mgrid = make_grid(xx, nrow=5, pad_value=20)
-    #fig = showTest(mgrid)
-    
-
+    fig = showgrid(valid[:,0,:,:],valid_reconstructions[:,0,:,:])
     recon_error = F.mse_loss(valid, valid_reconstructions)
 
-    return fig1, fig2, recon_error
+    return fig, recon_error

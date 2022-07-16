@@ -9,11 +9,13 @@ from six.moves import xrange
 import torch.nn.functional as F
 from torch.utils.data import DataLoader
 from torch.utils.data import random_split
+from torch.optim import lr_scheduler
 import matplotlib.pyplot as plt
+import wandb
 
 
 class VQVAETrainer:
-    def __init__(self, folder_path,length=60,lwin=12,ext='WAV',n_fft=1024, device='cuda'):
+    def __init__(self, folder_path,length=60,lwin=12,ext='WAV',n_fft=1028, device='cuda', wandb=False,load_checkpoint = None):
         self.folder_path = folder_path
         self.dataset = EcoData(folder_path, length=length, 
                                lwin=lwin, ext=ext, n_fft=n_fft)
@@ -25,29 +27,41 @@ class VQVAETrainer:
 
         self.num_training_updates = len(self.train)
         self.device = device
+        self.wandb = wandb
+        self.load_checkpoint = load_checkpoint
 
     def run(self, checkpoints, batch_size, num_hiddens, 
             num_embeddings, embedding_dim, commitment_cost, 
-            decay, learning_rate, num_epochs):
+            decay, learning_rate, num_epochs, num_residual_layers,num_residual_hiddens):
 
         print(f'run trained \t Device: {self.device}')
 
-        train_dataloader = DataLoader(self.train, batch_size=batch_size, shuffle = False)
-        test_dataloader  = DataLoader(self.test, batch_size=batch_size)
+        train_dataloader = DataLoader(self.train, batch_size=batch_size, shuffle = True)
+        test_dataloader  = DataLoader(self.test, batch_size=batch_size, shuffle = True)
 
         model = VQVAE(num_hiddens, num_embeddings, embedding_dim, 
-                      commitment_cost, decay).to(self.device)
+                      commitment_cost, num_residual_layers, num_residual_hiddens, decay).to(self.device)
+
+        if self.load_checkpoint != None:
+            file_checkpoint = torch.load(self.load_checkpoint)
+            model.load_state_dict(file_checkpoint['state_dict'])
+
 
         optimizer = optim.Adam(model.parameters(), lr=learning_rate, amsgrad=False)
+        scheduler = lr_scheduler.StepLR(optimizer, step_size = 1, gamma = 0.1 )
+
+        if self.wandb:
+            wandb.watch(model, F.mse_loss, log="all", log_freq=1)
 
 
         model.train()
         test_iter = iter(self.test)
 
         for epoch in range(num_epochs):
-            for i in xrange(self.num_training_updates):
+            train_iter = iter(train_dataloader)
+            for i in xrange(len(train_iter)):
                 try:
-                    (data, _,_) = next(iter(train_dataloader))
+                    (data, _,_,_) = next(train_iter)
                 except Exception as e:
                     print(e)
                     continue
@@ -60,38 +74,52 @@ class VQVAETrainer:
                     optimizer.zero_grad()
                     vq_loss, data_recon, perplexity = model(tdata)
       
-                    recon_error = F.mse_loss(data_recon, tdata)
+                    recon_error = F.mse_loss(data_recon, tdata, reduction='mean')
                     loss = recon_error + vq_loss
                     loss.backward()
 
                     optimizer.step()
+              
+                if self.wandb:
+                    wandb.log({"loss":loss.item(),
+                               "perplexity":perplexity.item(),
+                               "recon_error": recon_error,
+                               "vq_loss": vq_loss})
 
-                print(f'epoch: {epoch} of {num_epochs} \t iteration: {(i+1)}... of {self.num_training_updates} \t loss: {np.round(loss.item(),7)} \t recon_error: {np.round(recon_error.item(),7)} \t vq_loss: {np.round(vq_loss.item(),7)}')
+                print(f'epoch: {epoch} of {num_epochs} \t iteration: {(i+1)}... of {len(train_iter)} \t loss: {np.round(loss.item(),7)} \t recon_error: {np.round(recon_error.item(),7)} \t vq_loss: {np.round(vq_loss.item(),7)}')
 
                 torch.cuda.empty_cache()
 
 
-                if (i+1) % 50 == 0:
+                if (i+1) % 10 == 0:
                     try:
-                        fig1,fig2, test_error = testModel(model, test_iter)
+                        fig, test_error = testModel(model, test_iter)
+                        if self.wandb:
+                            images = wandb.Image(fig, caption= f"recon_error: {np.round(test_error.item(),4)}")
+                            wandb.log({"examples": images})
+                        plt.close('all')
                         torch.save({'state_dict': model.state_dict(),
                                     'epoch': epoch,
                                     'iteration': i,
                                     'loss': np.round(loss.item(),7),
                                     'recon_error': np.round(recon_error.item(),7), 
                                     'vq_loss': np.round(vq_loss.item(),7)},
-                                    f'{checkpoints}/model_{epoch}_{i}.pth')
+                                    f'{checkpoints}/ecovae_model.pth')
                     except:
-                        pass
                         test_iter = iter(self.test)
-                        fig1,fig2, test_error = testModel(model, test_iter)
+                        fig, test_error = testModel(model, test_iter)
+                        if self.wandb:
+                            images = wandb.Image(fig, caption= f"recon_error: {np.round(test_error.item(),4)}")
+                            wandb.log({"examples": images})
+                        plt.close('all')
                         torch.save({'state_dict': model.state_dict(),
                                     'epoch': epoch,
                                     'iteration': i,
                                     'loss': np.round(loss.item(),7),
                                     'recon_error': np.round(recon_error.item(),7), 
                                     'vq_loss': np.round(vq_loss.item(),7)},
-                                    f'{checkpoints}/model_{epoch}_{i}.pth')
+                                    f'{checkpoints}/ecovae_model.pth')
+            scheduler.step()
 
 
 def main():
@@ -108,20 +136,32 @@ def main():
     parser.add_argument('--embedding_dim', type=int, default=128)
     parser.add_argument('--num_embeddings', type=int, default=64)
     parser.add_argument('--commitment_cost', type=float, default=0.25)
+    parser.add_argument('--num_residual_layers', type=int, default=32)
+    parser.add_argument('--num_residual_hiddens', type=int, default=2)
     parser.add_argument('--decay', type=float, default=0.99)
     parser.add_argument('--learning_rate', type=float, default=1e-3)
     parser.add_argument('--device', type=str, required=False)
+    parser.add_argument('--wandb', type=bool, default=bool,required=False)
+    parser.add_argument('--load_checkpoint', type=str, default=None,required=False)
     args = parser.parse_args()
+    
 
     if not args.device:
         args.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+
+    if args.wandb:
+        wandb.finish()
+        wandb.init(project="ecovae", config=args)
+
 
     vqvae_trainer = VQVAETrainer(args.folder_path,
                                 args.audio_len,
                                 args.lwin,
                                 args.ext,
                                 args.n_fft, 
-                                args.device)
+                                args.device,
+                                args.wandb,
+                                args.load_checkpoint)
 
     vqvae_trainer.run(args.checkpoints_path, 
                      args.batch_size, 
@@ -131,7 +171,13 @@ def main():
                      args.commitment_cost, 
                      args.decay, 
                      args.learning_rate, 
-                     args.num_epochs)
+                     args.num_epochs,
+                     args.num_residual_layers,
+                     args.num_residual_hiddens)
+
+    if args.wandb:
+        wandb.finish()
+
 
     print('Termino el for')
 
