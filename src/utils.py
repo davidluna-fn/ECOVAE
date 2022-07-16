@@ -31,8 +31,8 @@ def showTest(grid):
 def showgrid(t1,t2):
     fig, ax = plt.subplots(nrows=2,ncols=5,figsize=(20,7))
     for i in range(t1.shape[0]):
-        ax[0,i].pcolormesh(t1[i,:,:].cpu().numpy(),vmin=0,vmax=0.1)
-        ax[1,i].pcolormesh(t2[i,:,:].cpu().detach().numpy(),vmin=0,vmax=0.11)
+        ax[0,i].pcolormesh(t1[i,:,:].cpu().numpy(),vmin=0,vmax=1)
+        ax[1,i].pcolormesh(t2[i,:,:].cpu().detach().numpy(),vmin=0,vmax=1)
         ax[0,i].set(xticklabels=[], yticklabels=[], xticks=[], yticks=[])
         ax[1,i].set(xticklabels=[], yticklabels=[], xticks=[], yticks=[])
         plt.subplots_adjust(wspace=0.1, hspace=0.1)
