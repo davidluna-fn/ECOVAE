@@ -97,28 +97,50 @@ class VQVAETrainer:
                         if self.wandb:
                             images = wandb.Image(fig, caption= f"recon_error: {np.round(test_error.item(),4)}")
                             wandb.log({"examples": images})
-                        plt.close('all')
-                        torch.save({'state_dict': model.state_dict(),
+                            torch.save({'state_dict': model.state_dict(),
+                                    'epoch': epoch,
+                                    'iteration': i,
+                                    'loss': np.round(loss.item(),7),
+                                    'recon_error': np.round(recon_error.item(),7), 
+                                    'vq_loss': np.round(vq_loss.item(),7)},
+                                    f'{checkpoints}/{wandb.run.name}.pth')
+                        else:
+                            torch.save({'state_dict': model.state_dict(),
                                     'epoch': epoch,
                                     'iteration': i,
                                     'loss': np.round(loss.item(),7),
                                     'recon_error': np.round(recon_error.item(),7), 
                                     'vq_loss': np.round(vq_loss.item(),7)},
                                     f'{checkpoints}/ecovae_model.pth')
+
+                        plt.close('all')
+
+                        
                     except:
                         test_iter = iter(self.test)
                         fig, test_error = testModel(model, test_iter)
                         if self.wandb:
                             images = wandb.Image(fig, caption= f"recon_error: {np.round(test_error.item(),4)}")
                             wandb.log({"examples": images})
-                        plt.close('all')
-                        torch.save({'state_dict': model.state_dict(),
+                            torch.save({'state_dict': model.state_dict(),
+                                    'epoch': epoch,
+                                    'iteration': i,
+                                    'loss': np.round(loss.item(),7),
+                                    'recon_error': np.round(recon_error.item(),7), 
+                                    'vq_loss': np.round(vq_loss.item(),7)},
+                                    f'{checkpoints}/{wandb.run.name}.pth')
+
+                        else:
+                            torch.save({'state_dict': model.state_dict(),
                                     'epoch': epoch,
                                     'iteration': i,
                                     'loss': np.round(loss.item(),7),
                                     'recon_error': np.round(recon_error.item(),7), 
                                     'vq_loss': np.round(vq_loss.item(),7)},
                                     f'{checkpoints}/ecovae_model.pth')
+
+                        plt.close('all')
+
             scheduler.step()
 
 
