@@ -21,11 +21,8 @@ class Encoder(nn.Module):
                                  kernel_size=(3, 3),
                                  stride=(2, 2), padding=(0, 0))
 
-
-        self.pooling = nn.MaxPool2d(2)
-
     def forward(self, inputs):
-        
+
         x = self._conv_1(inputs)
         x = F.leaky_relu(x)
 
@@ -35,43 +32,36 @@ class Encoder(nn.Module):
         return x
 
 class Decoder(nn.Module):
-    def __init__(self, embedding_dim, num_hiddens, num_residual_layers,num_residual_hiddens ):
+    def __init__(self, embedding_dim, num_hiddens ):
         super(Decoder, self).__init__()
 
-        self.residual_stack_d = ResidualStack(in_channels=embedding_dim,
-                                        num_hiddens=embedding_dim,
-                                        num_residual_layers=num_residual_layers,
-                                        num_residual_hiddens=num_residual_hiddens)
-
-        self._conv_trans_1 = nn.ConvTranspose2d(in_channels=embedding_dim,
+        self._conv_trans_2 = nn.ConvTranspose2d(in_channels=embedding_dim,
                                                 out_channels=num_hiddens,
-                                                kernel_size=(3, 3),
-                                                stride=(2, 2))
-
-        self._conv_trans_2 = nn.ConvTranspose2d(in_channels=num_hiddens,
-                                                out_channels=num_hiddens // 2,
                                                 kernel_size=(4, 4),
-                                                stride=(2, 2))
-        
-        self._conv_trans_3 = nn.ConvTranspose2d(in_channels=num_hiddens // 2,
-                                                out_channels=1,
-                                                kernel_size=(5, 5),
-                                                stride=(2, 2))
+                                                stride=(2, 2), padding=(0, 0), output_padding=(0, 0))
 
+        self._conv_trans_3 = nn.ConvTranspose2d(in_channels=num_hiddens,
+                                                out_channels=num_hiddens // 4,
+                                                kernel_size=(3, 3),
+                                                stride=(2, 2), padding=(0, 0),  output_padding=(0, 0))
+
+        self._conv_trans_6 = nn.ConvTranspose2d(in_channels=num_hiddens // 4,
+                                                out_channels=1,
+                                                kernel_size=(3, 3),
+                                                stride=(2, 2), padding=(0, 0), output_padding=(0, 0))
 
         self.Sigmoid = nn.Sigmoid()
 
     def forward(self, inputs):
 
-        x = self.residual_stack_d(inputs)
-        x = self._conv_trans_1(x)
-        x = F.leaky_relu(x)
-
-        x = self._conv_trans_2(x)
+        x = self._conv_trans_2(inputs)
         x = F.leaky_relu(x)
 
         x = self._conv_trans_3(x)
         x = F.leaky_relu(x)
+
+        x = self._conv_trans_6(x)
+        x = self.Sigmoid(x)
 
         return x
 
